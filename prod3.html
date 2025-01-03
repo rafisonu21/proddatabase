@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Data Entry</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #ddd;
+        }
+        .module-section {
+            margin-bottom: 40px;
+        }
+        .module-header {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .summary-row {
+            font-weight: bold;
+            background-color: #e8f5e9;
+        }
+        .combined-summary-row {
+            background-color: #e0f7fa;
+        }
+        input[type="number"], select {
+            width: 90%;
+            padding: 5px;
+            margin: 5px 0;
+            text-align: LEFT;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        input[type="text"], select {
+            width: 90%;
+            padding: 5px;
+            margin: 5px 0;
+            text-align: LEFT;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        input[type="date"], select {
+            width: 95%;
+            padding: 5px;
+            margin: 5px 0;
+            text-align: left;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        input[disabled] {
+            background-color: #f9f9f9;
+        }
+        .total-row td {
+            background-color: #f1f1f1;
+            font-weight: bold;
+        }
+        .summary-row td, .total-row td {
+            background-color: #f4f4f4;
+        }
+        .combined-summary-table td {
+            font-size: 14px;
+        }
+        .combined-summary-table th {
+            background-color: #64b5f6;
+        }
+        .form-section {
+            margin-bottom: 20px;
+        }
+        .form-section label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Production Data Entry</h1>
+    <span>
+        <label for="date">Date:</label>
+        <input type="date" id="date" required>
+        <label for="shift-incharge">Shift Incharge:</label>
+        <input type="text" id="shift-incharge" placeholder="Enter Name" required>
+        <label for="shift">Shift:</label>
+        <select id="shift" required>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+        </select>
+    </span>
+
+    <div class="module-section">
+        <div class="module-header">Table-1</div>
+        <table id="table-1"></table>
+        <button type="button" onclick="submitTableData('table-1')">Submit Table 1</button> 
+    </div>
+
+    <div class="module-section">
+        <div class="module-header">Table-2</div>
+        <table id="table-2"></table>
+        <button type="button" onclick="submitTableData('table-2')">Submit Table 2</button> 
+    </div>
+
+    <div class="module-section">
+        <div class="module-header">Combined Summary Table</div>
+        <table id="combined-summary"></table>
+    </div>
+
+    <script>
+        // Function to create table structure for Table 1 and Table 2
+        function createTable(tableId) {
+            const table = document.getElementById(tableId);
+            const thead = `
+                <thead>
+                    <tr>
+                        <th>Hour</th>
+                        <th>Production</th>
+                        <th>Incoming Breakage</th>
+                        <th>Line Breakage</th>
+                        <th>Total Breakage</th>
+                        <th>Rejection</th>
+                        <th>Breakage %</th>
+                        <th>Rejection %</th>
+                        <th>Downtime (mins)</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+            `;
+            const tbody = `
+                <tbody>
+                    ${Array.from({ length: 8 }).map((_, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td><input type="number" class="production" min="0"></td>
+                            <td><input type="number" class="incoming-breakage" min="0"></td>
+                            <td><input type="number" class="line-breakage" min="0"></td>
+                            <td><input type="text" class="total-breakage" disabled></td>
+                            <td><input type="number" class="rejection" min="0"></td>
+                            <td><input type="text" class="breakage-percent" disabled></td>
+                            <td><input type="text" class="rejection-percent" disabled></td>
+                            <td><input type="number" class="downtime" min="0"></td>
+                            <td><input type="text"></td>
+                        </tr>
+                    `).join('')}
+                    <tr class="summary-row">
+                        <td>Total</td>
+                        <td class="summary-production"></td>
+                        <td class="summary-incoming-breakage"></td>
+                        <td class="summary-line-breakage"></td>
+                        <td class="summary-total-breakage"></td>
+                        <td class="summary-rejection"></td>
+                        <td class="summary-breakage-percent"></td>
+                        <td class="summary-rejection-percent"></td>
+                        <td class="summary-downtime"></td>
+                    </tr>
+                </tbody>
+            `;
+            table.innerHTML = thead + tbody;
+        }
+
+        createTable('table-1');
+        createTable('table-2');
+
+        // Function to calculate table-wise totals and percentages
+        function calculateTableSummary(tableId) {
+            const rows = document.querySelectorAll(`#${tableId} tbody tr:not(.summary-row)`);
+            const summaryRow = document.querySelector(`#${tableId} .summary-row`);
+
+            let totals = {
+                production: 0,
+                incomingBreakage: 0,
+                lineBreakage: 0,
+                totalBreakage: 0,
+                rejection: 0,
+                downtime: 0,
+            };
+
+            rows.forEach(row => {
+                const production = parseFloat(row.querySelector('.production').value) || 0;
+                const incomingBreakage = parseFloat(row.querySelector('.incoming-breakage').value) || 0;
+                const lineBreakage = parseFloat(row.querySelector('.line-breakage').value) || 0;
+                const rejection = parseFloat(row.querySelector('.rejection').value) || 0;
+                const downtime = parseFloat(row.querySelector('.downtime').value) || 0;
+
+                const totalBreakage = incomingBreakage + lineBreakage;
+
+                totals.production += production;
+                totals.incomingBreakage += incomingBreakage;
+                totals.lineBreakage += lineBreakage;
+                totals.totalBreakage += totalBreakage;
+                totals.rejection += rejection;
+                totals.downtime += downtime;
+
+                const breakagePercent = production ? ((totalBreakage / production) * 100).toFixed(2) : '0';
+                const rejectionPercent = production ? ((rejection / production) * 100).toFixed(2) : '0';
+                row.querySelector('.total-breakage').value = totalBreakage;
+                row.querySelector('.breakage-percent').value = breakagePercent;
+                row.querySelector('.rejection-percent').value = rejectionPercent;
+            });
+
+            // Update summary row
+            summaryRow.querySelector('.summary-production').textContent = totals.production;
+            summaryRow.querySelector('.summary-incoming-breakage').textContent = totals.incomingBreakage;
+            summaryRow.querySelector('.summary-line-breakage').textContent = totals.lineBreakage;
+            summaryRow.querySelector('.summary-total-breakage').textContent = totals.totalBreakage;
+            summaryRow.querySelector('.summary-rejection').textContent = totals.rejection;
+            summaryRow.querySelector('.summary-downtime').textContent = totals.downtime;
+
+            const breakagePercent = totals.production ? ((totals.totalBreakage / totals.production) * 100).toFixed(2) : '0';
+            const rejectionPercent = totals.production ? ((totals.rejection / totals.production) * 100).toFixed(2) : '0';
+
+            summaryRow.querySelector('.summary-breakage-percent').textContent = `${breakagePercent}%`;
+            summaryRow.querySelector('.summary-rejection-percent').textContent = `${rejectionPercent}%`;
+        }
+
+        // Function to update combined summary with totals for each hour
+        function updateCombinedSummary() {
+            const rows1 = document.querySelectorAll('#table-1 tbody tr:not(.summary-row)');
+            const rows2 = document.querySelectorAll('#table-2 tbody tr:not(.summary-row)');
+            const summaryRow = document.querySelector('#combined-summary tbody .summary-row');
+
+            let totals = {
+                production: 0,
+                incomingBreakage: 0,
+                lineBreakage: 0,
+                totalBreakage: 0,
+                rejection: 0,
+                downtime: 0,
+            };
+
+            rows1.forEach((row, index) => {
+                const production1 = parseFloat(row.querySelector('.production').value) || 0;
+                const incomingBreakage1 = parseFloat(row.querySelector('.incoming-breakage').value) || 0;
+                const lineBreakage1 = parseFloat(row.querySelector('.line-breakage').value) || 0;
+                const rejection1 = parseFloat(row.querySelector('.rejection').value) || 0;
+                const downtime1 = parseFloat(row.querySelector('.downtime').value) || 0;
+
+                const production2 = parseFloat(rows2[index].querySelector('.production').value) || 0;
+                const incomingBreakage2 = parseFloat(rows2[index].querySelector('.incoming-breakage').value) || 0;
+                const lineBreakage2 = parseFloat(rows2[index].querySelector('.line-breakage').value) || 0;
+                const rejection2 = parseFloat(rows2[index].querySelector('.rejection').value) || 0;
+                const downtime2 = parseFloat(rows2[index].querySelector('.downtime').value) || 0;
+
+                const totalBreakage1 = incomingBreakage1 + lineBreakage1;
+                const totalBreakage2 = incomingBreakage2 + lineBreakage2;
+
+                // Update Combined Summary Table for each Hour
+                const combinedRow = document.querySelector(`#combined-summary tbody tr:nth-child(${index + 1})`);
+                combinedRow.querySelector('.combined-production').textContent = production1 + production2;
+                combinedRow.querySelector('.combined-incoming-breakage').textContent = incomingBreakage1 + incomingBreakage2;
+                combinedRow.querySelector('.combined-line-breakage').textContent = lineBreakage1 + lineBreakage2;
+                combinedRow.querySelector('.combined-total-breakage').textContent = totalBreakage1 + totalBreakage2;
+                combinedRow.querySelector('.combined-rejection').textContent = rejection1 + rejection2;
+                combinedRow.querySelector('.combined-downtime').textContent = downtime1 + downtime2;
+
+                const combinedTotalBreakage = totalBreakage1 + totalBreakage2;
+                const combinedRejection = rejection1 + rejection2;
+
+                // Calculate percentages
+                const breakagePercent = (combinedTotalBreakage / (production1 + production2)) * 100 || 0;
+                const rejectionPercent = (combinedRejection / (production1 + production2)) * 100 || 0;
+
+                combinedRow.querySelector('.combined-breakage-percent').textContent = breakagePercent.toFixed(2) + '%';
+                combinedRow.querySelector('.combined-rejection-percent').textContent = rejectionPercent.toFixed(2) + '%';
+
+                // Update combined totals
+                totals.production += production1 + production2;
+                totals.incomingBreakage += incomingBreakage1 + incomingBreakage2;
+                totals.lineBreakage += lineBreakage1 + lineBreakage2;
+                totals.totalBreakage += totalBreakage1 + totalBreakage2;
+                totals.rejection += rejection1 + rejection2;
+                totals.downtime += downtime1 + downtime2;
+            });
+
+            // Update summary row in combined table
+            summaryRow.querySelector('.summary-production').textContent = totals.production;
+            summaryRow.querySelector('.summary-incoming-breakage').textContent = totals.incomingBreakage;
+            summaryRow.querySelector('.summary-line-breakage').textContent = totals.lineBreakage;
+            summaryRow.querySelector('.summary-total-breakage').textContent = totals.totalBreakage;
+            summaryRow.querySelector('.summary-rejection').textContent = totals.rejection;
+            summaryRow.querySelector('.summary-downtime').textContent = totals.downtime;
+
+            const breakagePercent = totals.production ? ((totals.totalBreakage / totals.production) * 100).toFixed(2) : '0';
+            const rejectionPercent = totals.production ? ((totals.rejection / totals.production) * 100).toFixed(2) : '0';
+
+            summaryRow.querySelector('.summary-breakage-percent').textContent = `${breakagePercent}%`;
+            summaryRow.querySelector('.summary-rejection-percent').textContent = `${rejectionPercent}%`;
+        }
+
+        // Initialize Combined Summary Table structure
+        function createCombinedSummaryTable() {
+            const table = document.getElementById('combined-summary');
+            const thead = `
+                <thead>
+                    <tr>
+                        <th>Hour</th>
+                        <th>Production</th>
+                        <th>Incoming Breakage</th>
+                        <th>Line Breakage</th>
+                        <th>Total Breakage</th>
+                        <th>Rejection</th>
+                        <th>Breakage %</th>
+                        <th>Rejection %</th>
+                        <th>Downtime (mins)</th>
+                    </tr>
+                </thead>
+            `;
+            const tbody = `
+                <tbody>
+                    ${Array.from({ length: 8 }).map((_, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td class="combined-production"></td>
+                            <td class="combined-incoming-breakage"></td>
+                            <td class="combined-line-breakage"></td>
+                            <td class="combined-total-breakage"></td>
+                            <td class="combined-rejection"></td>
+                            <td class="combined-breakage-percent"></td>
+                            <td class="combined-rejection-percent"></td>
+                            <td class="combined-downtime"></td>
+                        </tr>
+                    `).join('')}
+                    <tr class="summary-row">
+                        <td>Total</td>
+                        <td class="summary-production"></td>
+                        <td class="summary-incoming-breakage"></td>
+                        <td class="summary-line-breakage"></td>
+                        <td class="summary-total-breakage"></td>
+                        <td class="summary-rejection"></td>
+                        <td class="summary-breakage-percent"></td>
+                        <td class="summary-rejection-percent"></td>
+                        <td class="summary-downtime"></td>
+                    </tr>
+                </tbody>
+            `;
+            table.innerHTML = thead + tbody;
+        }
+
+        createCombinedSummaryTable();
+
+        // Add event listeners to trigger updates on value change
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => {
+                calculateTableSummary('table-1');
+                calculateTableSummary('table-2');
+                updateCombinedSummary();
+            });
+        });
+
+        updateCombinedSummary(); // Initial update for combined summary
+
+        // Function to submit table data to local storage
+        function submitTableData(tableId) {
+            const table = document.getElementById(tableId);
+            const rows = table.querySelectorAll('tbody tr:not(.summary-row)');
+            const tableData = [];
+
+            rows.forEach(row => {
+                const rowData = {};
+                rowData.hour = row.cells[0].textContent;
+                rowData.production = row.cells[1].querySelector('input').value;
+                rowData.incomingBreakage = row.cells[2].querySelector('input').value;
+                rowData.lineBreakage = row.cells[3].querySelector('input').value;
+                rowData.totalBreakage = row.cells[4].querySelector('input').value;
+                rowData.rejection = row.cells[5].querySelector('input').value;
+                rowData.breakagePercent = row.cells[6].querySelector('input').value; 
+                rowData.rejectionPercent = row.cells[7].querySelector('input').value; 
+                rowData.downtime = row.cells[8].querySelector('input').value;
+                rowData.remarks = row.cells[9].querySelector('input').value;
+                tableData.push(rowData);
+            });
+
+            // Store data in local storage
+            localStorage.setItem(`${tableId}Data`, JSON.stringify(tableData));
+
+            // Display success message
+            alert(`Data from Table ${tableId} submitted and saved to local storage!`);
+        }
+    </script>
+</body>
+</html>
